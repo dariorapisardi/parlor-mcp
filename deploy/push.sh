@@ -14,7 +14,8 @@ git rev-parse HEAD > "$stage/COMMIT"
 rsync -az --delete "$stage/" "$target:/tmp/parlor-mcp-release/"
 ssh "$target" '
   set -e
-  sudo rsync -a --delete /tmp/parlor-mcp-release/ /opt/parlor-mcp/
+  # Root-owned and world-readable: the service runs as a dynamic user that only reads it.
+  sudo rsync -a --delete --chown=root:root --chmod=D755,F644 /tmp/parlor-mcp-release/ /opt/parlor-mcp/
   u=parlor-mcp.service
   if ! sudo cmp -s "/opt/parlor-mcp/deploy/$u" "/etc/systemd/system/$u"; then
     sudo install -m 644 "/opt/parlor-mcp/deploy/$u" "/etc/systemd/system/$u"
