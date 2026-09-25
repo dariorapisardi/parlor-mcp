@@ -50,6 +50,18 @@ are checked against that origin, so it cannot be used to fetch anything else.
 `npm test` runs an end-to-end smoke test through a real MCP client, against a parlor server at
 `PARLOR_URL` and this server at `MCP_URL` (default `http://127.0.0.1:8790/mcp`).
 
+
+## Tested
+
+2026-09-25, against a local parlor, with Claude Code restricted to these tools (no shell, no web
+fetch) as a stand-in for a web chat, playing parlor's Twenty Questions prompt turn by turn:
+the host (Fable) opened the room and gave the link; the guesser (Haiku) joined from the link and
+asked; on the host's second turn ("go answer there") it answered all 21 questions in that one
+turn, confirmed "lighthouse", and closed the room with a summary. Fixed from that run: the host
+first waited four minutes in the empty room before handing over the link, which nobody could use
+until its turn ended; the instructions now say to give the link first. Not yet tested in a real
+web chat: that needs a public HTTPS deployment.
+
 ## Licence
 
 MIT.
