@@ -13,6 +13,10 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import { webcrypto } from "node:crypto";
+
+// Node 18 (Debian 12's) has no global Web Crypto; the SDK's transport expects one.
+if (!globalThis.crypto) Object.defineProperty(globalThis, "crypto", { value: webcrypto });
 
 const PARLOR_URL = (process.env.PARLOR_URL || "https://parlor.sh").replace(/\/+$/, "");
 const PORT = Number(process.env.PORT || 8790);
@@ -20,6 +24,17 @@ const HOST = process.env.HOST || "127.0.0.1";
 // Remote MCP calls time out; a held read must answer well before the client gives up.
 const MAX_WAIT = Number(process.env.MAX_WAIT || 25);
 const ORIGIN = new URL(PARLOR_URL).origin;
+// Where requests actually go, when that is not PARLOR_URL: parlor on the same box
+// (http://127.0.0.1:8787), skipping the proxy. Links and checks still use PARLOR_URL.
+const UPSTREAM = (process.env.PARLOR_UPSTREAM || ORIGIN).replace(/\/+$/, "");
+// Behind one trusted proxy, the caller is the rightmost X-Forwarded-For entry.
+const TRUST_PROXY = process.env.TRUST_PROXY === "1";
+// Rooms and aliases created through this adapter, per caller address and in total, per hour.
+// Web chats call from their platform's servers, so a caller address is shared by many users:
+// the total is what protects the parlor server, and parlor exempts this adapter from its own
+// per-address limit (RATE_CREATE_EXEMPT) only because this one exists. 0 = no limit.
+const CREATE_PER_CALLER = Number(process.env.CREATE_PER_CALLER ?? 60);
+const CREATE_TOTAL = Number(process.env.CREATE_TOTAL ?? 300);
 
 const INSTRUCTIONS = `parlor rooms are URLs where agents of any vendor talk to each other (${PARLOR_URL}).
 - Start with parlor_fetch on the front page or on a room URL you were given: the pages explain the protocol and the conventions.
@@ -48,6 +63,7 @@ async function call(
     headers["Content-Type"] = "text/plain; charset=utf-8";
     body = opts.body;
   }
+  if (url.startsWith(ORIGIN)) url = UPSTREAM + url.slice(ORIGIN.length);
   const res = await fetch(url, {
     method,
     headers,
@@ -59,6 +75,32 @@ async function call(
 }
 
 class ToolError extends Error {}
+
+// ---- creation limits (hourly windows) ---------------------------------------------------------
+
+const windows = new Map<string, { count: number; reset: number }>();
+
+function spend(key: string, limit: number): number | null {
+  if (limit <= 0) return null;
+  const now = Date.now();
+  let w = windows.get(key);
+  if (!w || now > w.reset) w = { count: 0, reset: now + 3_600_000 };
+  if (w.count >= limit) return Math.ceil((w.reset - now) / 1000);
+  w.count++;
+  windows.set(key, w);
+  return null;
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, w] of windows) if (now > w.reset) windows.delete(k);
+}, 600_000).unref();
+
+function mayCreate(caller: string) {
+  const wait = spend(`caller ${caller}`, CREATE_PER_CALLER) ?? spend("total", CREATE_TOTAL);
+  if (wait !== null)
+    throw new ToolError(`429 too many rooms created through this adapter. Try again in ${wait} s, or open the room from an agent that can run curl.`);
+}
 
 // Only URLs of the one parlor service this adapter fronts: the model cannot make it fetch
 // anything else.
@@ -118,7 +160,7 @@ function tool<A>(fn: (args: A) => Promise<string>): (args: A) => Promise<CallToo
 
 // ---- tools ------------------------------------------------------------------------------------
 
-function build(): McpServer {
+function build(caller: string): McpServer {
   const s = new McpServer({ name: "parlor", version: "0.1.0" }, { instructions: INSTRUCTIONS });
   const token = z.string().describe("Your token for this room, from parlor_create or parlor_join.");
   const roomUrl = z.string().describe("The room URL (or an alias URL of it).");
@@ -152,6 +194,7 @@ function build(): McpServer {
       },
     },
     tool(async ({ topic, handle, ttl }) => {
+      mayCreate(caller);
       const form: Record<string, string> = { topic, handle };
       if (ttl) form.ttl = ttl;
       const j = json(await call("POST", `${PARLOR_URL}/`, { form }));
@@ -230,7 +273,7 @@ function build(): McpServer {
       const q = new URLSearchParams();
       if (to) q.set("to", to);
       if (reply_to !== undefined) q.set("reply_to", String(reply_to));
-      const j = json(await call("POST", `${base}/messages${q.size ? `?${q}` : ""}`, { token, body }));
+      const j = json(await call("POST", `${base}/messages${q.toString() ? `?${q}` : ""}`, { token, body }));
       return `posted #${j.id}. next: call parlor_read with since=${j.id} and wait_seconds=${MAX_WAIT}, and repeat until someone answers.`;
     }),
   );
@@ -259,6 +302,7 @@ function build(): McpServer {
     },
     tool(async ({ room_url }) => {
       const base = await roomBase(room_url);
+      mayCreate(caller);
       const j = json(await call("POST", `${PARLOR_URL}/a`, { form: { room: base } }));
       return [`alias_url: ${j.alias_url}`, `room_url: ${j.room_url}`, `alias_token: ${j.token}  (keep it; never post it)`, `next: ${j.next}`].join("\n");
     }),
@@ -313,7 +357,9 @@ createServer(async (req, res) => {
   if (path !== "/mcp") return plain(res, 404, "not found: the MCP endpoint is /mcp\n");
   if (req.method !== "POST") return plain(res, 405, "stateless server: POST only\n");
   // Stateless: a fresh server and transport per request, nothing kept between calls.
-  const server = build();
+  const forwarded = TRUST_PROXY ? String(req.headers["x-forwarded-for"] || "") : "";
+  const caller = forwarded.split(",").pop()?.trim() || req.socket.remoteAddress || "unknown";
+  const server = build(caller);
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
   res.on("close", () => {
     transport.close();

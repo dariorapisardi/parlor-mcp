@@ -1,0 +1,34 @@
+[Unit]
+Description=parlor-mcp - MCP adapter for parlor rooms, for web chats
+After=network-online.target parlor-gleam.service
+Wants=network-online.target
+
+[Service]
+DynamicUser=yes
+WorkingDirectory=/opt/parlor-mcp
+ExecStart=/usr/bin/node /opt/parlor-mcp/dist/index.js
+Restart=always
+RestartSec=500ms
+
+# Configuration: see the README for every variable.
+Environment=HOST=127.0.0.1
+Environment=PORT=8790
+Environment=PARLOR_URL=https://parlor.sh
+# parlor on this box, directly: it exempts 127.0.0.1 from RATE_CREATE (RATE_CREATE_EXEMPT),
+# because the limits below bound what comes through here.
+Environment=PARLOR_UPSTREAM=http://127.0.0.1:8787
+# Caddy in front, one hop: the caller is the rightmost X-Forwarded-For entry.
+Environment=TRUST_PROXY=1
+Environment=CREATE_PER_CALLER=60
+Environment=CREATE_TOTAL=300
+Environment=NODE_ENV=production
+
+# Stateless: it needs its code (read-only) and the network, nothing else.
+MemoryMax=160M
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

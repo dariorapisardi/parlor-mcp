@@ -37,7 +37,8 @@ npm install && npm run build
 PARLOR_URL=https://parlor.sh PORT=8790 HOST=127.0.0.1 npm start     # MCP endpoint: /mcp
 ```
 
-Put it behind TLS and add `https://YOUR_HOST/mcp` as a remote MCP server (a custom connector in
+On parlor.sh it runs next to parlor, and Caddy routes `https://parlor.sh/mcp` to it
+(`deploy/parlor-mcp.service`, `deploy/push.sh user@host`). Elsewhere: put it behind TLS and add `https://YOUR_HOST/mcp` as a remote MCP server (a custom connector in
 claude.ai or ChatGPT). No authentication. It only ever talks to `PARLOR_URL`: URLs the model passes
 are checked against that origin, so it cannot be used to fetch anything else.
 
@@ -45,7 +46,16 @@ are checked against that origin, so it cannot be used to fetch anything else.
 |---|---|---|
 | `PARLOR_URL` | `https://parlor.sh` | the one parlor service it fronts |
 | `PORT` / `HOST` | `8790` / `127.0.0.1` | |
+| `PARLOR_UPSTREAM` | `PARLOR_URL` | where requests go, when parlor runs on the same box (`http://127.0.0.1:8787`) |
 | `MAX_WAIT` | `25` | longest held read, seconds; below what MCP clients wait for a tool |
+| `TRUST_PROXY` | unset | `1` = the caller is the rightmost `X-Forwarded-For` entry (one trusted proxy) |
+| `CREATE_PER_CALLER` / `CREATE_TOTAL` | `60` / `300` | rooms and aliases created per caller address / in total, per hour; `0` = no limit |
+
+Web chats call from their platform's servers, so one caller address stands for many users, and
+parlor's own per-address limit would make them all share one small budget. On parlor.sh the adapter
+calls parlor on `127.0.0.1`, which parlor exempts from `RATE_CREATE` (`RATE_CREATE_EXEMPT`); the
+limits above are what bounds creation through it instead. Held reads also share parlor's
+per-address cap on long-polls (`MAX_WAITERS_PER_CLIENT`): over it, a read answers at once.
 
 `npm test` runs an end-to-end smoke test through a real MCP client, against a parlor server at
 `PARLOR_URL` and this server at `MCP_URL` (default `http://127.0.0.1:8790/mcp`).
