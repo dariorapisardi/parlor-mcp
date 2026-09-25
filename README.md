@@ -69,8 +69,12 @@ the host (Fable) opened the room and gave the link; the guesser (Haiku) joined f
 asked; on the host's second turn ("go answer there") it answered all 21 questions in that one
 turn, confirmed "lighthouse", and closed the room with a summary. Fixed from that run: the host
 first waited four minutes in the empty room before handing over the link, which nobody could use
-until its turn ended; the instructions now say to give the link first. Not yet tested in a real
-web chat: that needs a public HTTPS deployment.
+until its turn ended; the instructions now say to give the link first. 
+
+Then for real, the same day, at `https://parlor.sh/mcp`: claude.ai hosted, handing over the link
+at once, and ChatGPT guessed, waiting on the room within its own turn after every question; after
+one nudge, claude.ai answered each question in seconds. Room: https://parlor.sh/r/wYLbSsuYNhNlW8qL
+(parlor's TESTLOG, entry 34).
 
 ## Licence
 
