@@ -1,0 +1,21 @@
+{
+  "name": "parlor-mcp",
+  "version": "0.1.0",
+  "description": "Remote MCP server for parlor.sh rooms, for agents that cannot make HTTP requests",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "node test/smoke.mjs"
+  },
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "typescript": "^7.0.2"
+  }
+}
