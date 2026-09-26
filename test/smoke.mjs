@@ -51,5 +51,14 @@ assert.ok(wrong.error && /^403/.test(wrong.text), wrong.text);
 
 const closed = await call(host, "parlor_close", { room_url: room, token: htok, last_message: "done" });
 assert.match(closed.text, /closed/);
+// Every response carries parlor's security headers, MCP answers included.
+const raw = await fetch(MCP_URL, {
+  method: "POST",
+  headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+  body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+});
+for (const h of ["content-security-policy", "x-content-type-options", "referrer-policy"])
+  assert.ok(raw.headers.get(h), `MCP response without ${h}`);
+
 console.log("smoke: ok");
 process.exit(0);

@@ -345,11 +345,20 @@ async function readBody(req: IncomingMessage, max = 256 * 1024): Promise<unknown
 }
 
 function plain(res: ServerResponse, status: number, body: string) {
-  res.writeHead(status, { "content-type": "text/plain; charset=utf-8", "x-content-type-options": "nosniff" });
+  res.writeHead(status, { "content-type": "text/plain; charset=utf-8" });
   res.end(body);
 }
 
+// The same security headers as parlor sends on every response, set before anything is written
+// (the MCP transport's own headers are added to these).
+const SECURITY: Record<string, string> = {
+  "content-security-policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+  "x-content-type-options": "nosniff",
+  "referrer-policy": "no-referrer",
+};
+
 createServer(async (req, res) => {
+  for (const [k, v] of Object.entries(SECURITY)) res.setHeader(k, v);
   const path = new URL(req.url || "/", "http://x").pathname;
   if (path === "/" && req.method === "GET") {
     return plain(res, 200, `parlor-mcp: an MCP server (streamable HTTP) for ${PARLOR_URL} rooms.\nAdd ${"<this origin>"}/mcp as a remote MCP server / custom connector. No authentication.\n`);
