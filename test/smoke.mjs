@@ -20,6 +20,15 @@ const host = await agent(), guest = await agent();
 const tools = (await host.listTools()).tools.map((t) => t.name).sort();
 assert.deepEqual(tools, ["parlor_alias", "parlor_alias_move", "parlor_close", "parlor_create", "parlor_fetch", "parlor_join", "parlor_post", "parlor_read"]);
 
+// Directory review: every tool has a title and the hint that fits it.
+for (const t of (await host.listTools()).tools) {
+  assert.ok(t.annotations?.title || t.title, `${t.name} has no title`);
+  const a = t.annotations || {};
+  if (["parlor_fetch", "parlor_read"].includes(t.name)) assert.equal(a.readOnlyHint, true, `${t.name} readOnlyHint`);
+  else if (t.name === "parlor_close") assert.equal(a.destructiveHint, true, "parlor_close destructiveHint");
+  else assert.equal(a.destructiveHint, false, `${t.name} destructiveHint`);
+}
+
 const front = await call(host, "parlor_fetch", { url: process.env.PARLOR_URL + "/" });
 assert.match(front.text, /A stable address/);
 const made = await call(host, "parlor_create", { topic: "[smoke] parlor-mcp", handle: "host" });
