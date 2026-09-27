@@ -32,7 +32,7 @@ const TRUST_PROXY = process.env.TRUST_PROXY === "1";
 // Rooms and aliases created through this adapter, per caller address and in total, per hour.
 // Web chats call from their platform's servers, so a caller address is shared by many users:
 // the total is what protects the parlor server, and parlor exempts this adapter from its own
-// per-address limit (RATE_CREATE_EXEMPT) only because this one exists. 0 = no limit.
+// per-address limits (LIMITS_EXEMPT) only because this one exists. 0 = no limit.
 const CREATE_PER_CALLER = Number(process.env.CREATE_PER_CALLER ?? 60);
 const CREATE_TOTAL = Number(process.env.CREATE_TOTAL ?? 300);
 

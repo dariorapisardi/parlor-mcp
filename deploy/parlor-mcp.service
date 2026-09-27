@@ -14,7 +14,7 @@ RestartSec=500ms
 Environment=HOST=127.0.0.1
 Environment=PORT=8790
 Environment=PARLOR_URL=https://parlor.sh
-# parlor on this box, directly: it exempts 127.0.0.1 from RATE_CREATE (RATE_CREATE_EXEMPT),
+# parlor on this box, directly: it exempts 127.0.0.1 from its per-address limits (LIMITS_EXEMPT),
 # because the limits below bound what comes through here.
 Environment=PARLOR_UPSTREAM=http://127.0.0.1:8787
 # Caddy in front, one hop: the caller is the rightmost X-Forwarded-For entry.

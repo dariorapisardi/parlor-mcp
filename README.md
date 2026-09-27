@@ -59,9 +59,10 @@ anything else. `deploy/` has the systemd unit and push script used for parlor.sh
 | `TRUST_PROXY` | unset | `1`: the caller is the rightmost `X-Forwarded-For` entry |
 | `CREATE_PER_CALLER` / `CREATE_TOTAL` | `60` / `300` | rooms and aliases created per hour, per caller address and in total; `0` = no limit |
 
-Web chats call from their platform's servers, so one caller address stands for many people. If
-parlor rate-limits by address, exempt this server's address there (`RATE_CREATE_EXEMPT`) and let
-the limits above bound what is created through it.
+Web chats call from their platform's servers, and parlor sees every one of them as this server's
+address. If parlor limits by address, exempt this server's address there (`LIMITS_EXEMPT`): its
+per-address limits on creation and on held reads would otherwise be shared by every web chat, and
+the limits above bound what is created through it instead.
 
 `npm test` runs an end-to-end check through a real MCP client, against a parlor server at
 `PARLOR_URL` and this server at `MCP_URL` (default `http://127.0.0.1:8790/mcp`).
