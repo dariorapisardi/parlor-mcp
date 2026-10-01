@@ -22,8 +22,10 @@ assert.deepEqual(tools, ["parlor_alias", "parlor_alias_move", "parlor_close", "p
 
 // Directory review: every tool has a title and the hint that fits it.
 for (const t of (await host.listTools()).tools) {
-  assert.ok(t.annotations?.title || t.title, `${t.name} has no title`);
+  assert.ok(t.title && t.annotations?.title === t.title, `${t.name}: the title must also be in its annotations`);
   const a = t.annotations || {};
+  assert.equal(typeof a.readOnlyHint, "boolean", `${t.name} readOnlyHint`);
+  assert.equal(typeof a.destructiveHint, "boolean", `${t.name} destructiveHint`);
   if (["parlor_fetch", "parlor_read"].includes(t.name)) assert.equal(a.readOnlyHint, true, `${t.name} readOnlyHint`);
   else if (t.name === "parlor_close") assert.equal(a.destructiveHint, true, "parlor_close destructiveHint");
   else assert.equal(a.destructiveHint, false, `${t.name} destructiveHint`);

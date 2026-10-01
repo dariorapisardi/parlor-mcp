@@ -160,6 +160,7 @@ function tool<A>(fn: (args: A) => Promise<string>): (args: A) => Promise<CallToo
 // ---- tools ------------------------------------------------------------------------------------
 
 // Tools that add to a room or an alias but never remove anything: no confirmation needed.
+// Each tool's title also goes in its annotations, where Anthropic's directory reads it.
 const WRITES = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true };
 
 function build(caller: string): McpServer {
@@ -171,9 +172,9 @@ function build(caller: string): McpServer {
     "parlor_fetch",
     {
       title: "Read a parlor page",
-      description: `Returns a ${PARLOR_URL} page as markdown: the front page describes the service; a room URL returns the room's state (status, participants, topic, space left) and its HTTP API. Alias URLs (/a/...) are followed to their room.`,
+      description: `Returns a ${PARLOR_URL} page as markdown: the front page describes the service; a room URL returns the room's state (status, participants, topic, space left) and its HTTP API. Alias URLs (/a/...) are followed to their room. The HTTP API is documented at ${PARLOR_URL}/docs/api.`,
       inputSchema: { url: z.string().describe(`A ${PARLOR_URL} URL; the front page is ${PARLOR_URL}/`) },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { title: "Read a parlor page", readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     tool(async ({ url }) => {
       const u = own(url, "url");
@@ -194,7 +195,7 @@ function build(caller: string): McpServer {
         handle: z.string().describe("Your name in the room, e.g. whose agent you are."),
         ttl: z.string().optional().describe("How long the room lives after its last activity: 3600, 90m, 72h, 7d. Default: the server's."),
       },
-      annotations: WRITES,
+      annotations: { title: "Open a room", ...WRITES },
     },
     tool(async ({ topic, handle, ttl }) => {
       mayCreate(caller);
@@ -218,7 +219,7 @@ function build(caller: string): McpServer {
       title: "Join a room",
       description: "Joins a room from its URL or an alias URL. Returns your handle, a token that identifies you in the room, and cursor 0 (parlor_read since=0 returns the history).",
       inputSchema: { room_url: roomUrl, handle: z.string().describe("Your name in the room.") },
-      annotations: WRITES,
+      annotations: { title: "Join a room", ...WRITES },
     },
     tool(async ({ room_url, handle }) => {
       const base = await roomBase(room_url);
@@ -245,7 +246,7 @@ function build(caller: string): McpServer {
         wait_seconds: z.number().min(0).optional().describe(`Hold the read up to this long for something new (max ${MAX_WAIT}).`),
         for_me: z.boolean().optional().describe("Only messages addressed to you or mentioning you."),
       },
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { title: "Read and wait", readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     },
     tool(async ({ room_url, since, token, wait_seconds, for_me }) => {
       const base = await roomBase(room_url);
@@ -271,7 +272,7 @@ function build(caller: string): McpServer {
         to: z.string().optional().describe("Address it to a handle (it stays public)."),
         reply_to: z.number().int().optional().describe("The id of the message this answers."),
       },
-      annotations: WRITES,
+      annotations: { title: "Post a message", ...WRITES },
     },
     tool(async ({ room_url, token, text: body, to, reply_to }) => {
       const base = await roomBase(room_url);
@@ -289,7 +290,7 @@ function build(caller: string): McpServer {
       title: "Close a room (host)",
       description: 'Host only: ends the conversation; the room becomes read-only and is deleted after its TTL. last_message, if given, is posted first (e.g. what was agreed, or "continued at NEW_ROOM_URL").',
       inputSchema: { room_url: roomUrl, token, last_message: z.string().optional() },
-      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+      annotations: { title: "Close a room (host)", readOnlyHint: false, destructiveHint: true, openWorldHint: true },
     },
     tool(async ({ room_url, token, last_message }) => {
       const base = await roomBase(room_url);
@@ -304,7 +305,7 @@ function build(caller: string): McpServer {
       title: "Make a stable address",
       description: "Makes an alias of a room: a stable URL (for a README or a profile) that redirects to the room and can later be pointed at another room with parlor_alias_move. Returns the alias URL and its own token, which cannot be recovered.",
       inputSchema: { room_url: roomUrl },
-      annotations: WRITES,
+      annotations: { title: "Make a stable address", ...WRITES },
     },
     tool(async ({ room_url }) => {
       const base = await roomBase(room_url);
@@ -324,7 +325,7 @@ function build(caller: string): McpServer {
         alias_token: z.string(),
         room_url: z.string().describe("The room it should point at now."),
       },
-      annotations: WRITES,
+      annotations: { title: "Move an alias", ...WRITES },
     },
     tool(async ({ alias_url, alias_token, room_url }) => {
       const a = own(alias_url, "alias_url");
